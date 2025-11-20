@@ -1,0 +1,4 @@
+Latency Analyzer: connecting to Kafka at localhost:29092
+Latency Analyzer: Connected to Kafka.
+--- Latency Analyzer timeout, no CTR message received within 60 s
+--- Analyzer shutdown ---

@@ -1,0 +1,108 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      TZ: Asia/Kolkata
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      TZ: Asia/Kolkata
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    environment:
+      TZ: Asia/Kolkata
+      POSTGRES_DB: streaming
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: qwertyuiop
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db_init:/docker-entrypoint-initdb.d:ro
+
+  spark-master:
+    image: apache/spark:3.5.3
+    container_name: spark-master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      TZ: Asia/Kolkata
+      SPARK_MASTER_HOST: spark-master
+    volumes:
+      - ./spark:/opt/spark/app
+      - ./spark_ivy_cache:/home/spark/.ivy2
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+
+  spark-worker:
+    image: apache/spark:3.5.3
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      TZ: Asia/Kolkata
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 1g
+    ports:
+      - "18081:8081"
+    volumes:
+      - ./spark:/opt/spark/app
+      - ./spark_ivy_cache:/home/spark/.ivy2
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+
+  flink-jobmanager:
+    build:
+      context: .
+      dockerfile: flink.Dockerfile
+    container_name: flink-jobmanager
+    ports:
+      - "8181:8081"
+    environment:
+      TZ: Asia/Kolkata
+    command: ["jobmanager"]
+    volumes:
+      - ./flink:/opt/flink/app
+      - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml  # <- override config completely
+
+  flink-taskmanager:
+    build:
+      context: .
+      dockerfile: flink.Dockerfile
+    container_name: flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    environment:
+      TZ: Asia/Kolkata
+    command: ["taskmanager"]
+    volumes:
+      - ./flink:/opt/flink/app
+      - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml  # <- override config completely
+
+volumes:
+  pgdata:
+
+networks:
+  default:
+    name: streaming-net

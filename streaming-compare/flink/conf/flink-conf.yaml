@@ -1,0 +1,17 @@
+jobmanager.rpc.address: flink-jobmanager
+
+taskmanager.numberOfTaskSlots: 8
+parallelism.default: 1
+
+taskmanager.memory.process.size: 2048m
+jobmanager.memory.process.size: 2048m
+
+rest.address: 0.0.0.0
+rest.bind-address: 0.0.0.0
+
+jobmanager.bind-host: 0.0.0.0
+taskmanager.bind-host: 0.0.0.0
+
+jobmanager.execution.failover-strategy: region
+blob.server.port: 6124
+query.server.port: 6125
